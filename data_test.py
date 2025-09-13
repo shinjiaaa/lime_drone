@@ -1,5 +1,3 @@
-# 모델이 이미지를 보고 충돌 가능성이 있는 객체인지 판단하는 파일
-
 from ultralytics import YOLO
 
 # 학습된 모델 불러오기
@@ -8,7 +6,7 @@ model = YOLO("runs/detect/train5/weights/best.pt")
 # 테스트 이미지에서 객체 감지
 results = model.predict(
     source="./dataset/valid/images/Drone-Crash-Compilation-VOL-4_0_0-10_0_mp4-2_jpg.rf.183f13076b52ad2cb8170abb1533b72a.jpg",
-    conf=0.25
+    conf=0.25,  # 신뢰도 임계값이 0.25 이상인 객체만 결과 표시
 )
 
 # 결과 이미지 확인

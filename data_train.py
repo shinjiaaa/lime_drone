@@ -1,13 +1,13 @@
 from ultralytics import YOLO
 
 if __name__ == "__main__":
-    # YOLOv8 Nano 모델 불러오기
+    # 모델 불러오기
     model = YOLO("yolov8n.pt")
 
-    # 학습 실행 (GPU 0번 사용)
+    # 학습 진행
     model.train(
         data="./dataset/data.yaml",
         epochs=50,
         imgsz=640,
-        device=0
+        device=0 # GPU 0번 사용
     )
