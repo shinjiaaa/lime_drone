@@ -6,7 +6,7 @@ model = YOLO("runs/detect/train5/weights/best.pt")
 # 테스트 이미지에서 객체 감지
 results = model.predict(
     source="./dataset/valid/images/Drone-Crash-Compilation-VOL-4_0_0-10_0_mp4-2_jpg.rf.183f13076b52ad2cb8170abb1533b72a.jpg",
-    conf=0.25,  # 신뢰도 임계값이 0.25 이상인 객체만 결과 표시
+    conf=0.25,  
 )
 
 # 결과 이미지 확인
