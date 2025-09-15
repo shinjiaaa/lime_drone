@@ -4,6 +4,18 @@ import numpy as np
 from lime import lime_image
 from skimage.segmentation import mark_boundaries
 import matplotlib.pyplot as plt
+from plyer import notification
+import winsound
+import threading
+import time
+
+def play_alarm_sound():
+    """Play emergency alarm sound"""
+    while True:
+        winsound.Beep(1000, 500)  # 1000Hz for 500ms
+        time.sleep(0.5)  # Pause between beeps
+        winsound.Beep(800, 500)   # 800Hz for 500ms
+        time.sleep(0.5)  # Pause between beeps
 
 # 학습된 모델 불러오기
 model = YOLO("runs/detect/train5/weights/best.pt")
@@ -29,17 +41,28 @@ img = cv2.imread(img_path)
 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
 # 충돌 확률 임계값 설정
-conf_threshold = 0.9
+conf_threshold = 0.5
 
 # 이미지별 충돌 확률 계산
 conf = predict_for_lime([img])[0][0]
 
-# 알람 메시지 및 심각도 출력
+# Check collision risk and set alarm
 if conf >= conf_threshold:
-    print(f"[경고] 충돌 위험! 확률: {conf*100:.1f}% 즉시 멈추세요!")
     color_map = "Reds"
+    
+    # Start alarm sound in a separate thread
+    alarm_thread = threading.Thread(target=play_alarm_sound)
+    alarm_thread.daemon = True  # Thread will stop when main program stops
+    alarm_thread.start()
+    
+    # Show Windows notification
+    notification.notify(
+        title='Drone Collision Warning!',
+        message=f'Collision Risk Detected!\nProbability: {conf*100:.1f}%\nTake immediate action!',
+        app_icon=None,
+        timeout=10,
+    )
 else:
-    print(f"[안내] 충돌 위험 낮음. 확률: {conf*100:.1f}%")
     color_map = "Blues"
 
 # LIME explainer
@@ -59,26 +82,25 @@ temp, mask = explanation.get_image_and_mask(
     hide_rest=False,
 )
 
-# 각 슈퍼픽셀별 기여도 퍼센트 출력
-print("슈퍼픽셀별 충돌 기여도 (퍼센트)")
-for superpixel, weight in explanation.local_exp[label]:
-    print(f"슈퍼픽셀 {superpixel}: {weight*100:.2f}%")
-
 # 각 슈퍼픽셀별 기여도 합산
 positive_sum = sum(weight for _, weight in explanation.local_exp[label] if weight > 0)
 negative_sum = sum(weight for _, weight in explanation.local_exp[label] if weight < 0)
 total = positive_sum + abs(negative_sum)
 
-print(f"충돌 가능성 영역 기여도: {positive_sum / total * 100:.2f}%")
-print(f"비충돌 가능성 영역 기여도: {abs(negative_sum) / total * 100:.2f}%")
+# 통계 정보만 출력
+print("\n=== 충돌 위험 분석 결과 ===")
+print(f"충돌 확률: {conf*100:.1f}%")
+print(f"충돌 위험 영역 기여도: {positive_sum / total * 100:.2f}%")
+print(f"안전 영역 기여도: {abs(negative_sum) / total * 100:.2f}%")
+print("==========================")
 
 # 결과 시각화: 원본과 설명 시각화를 한 화면에 표시
 fig, axes = plt.subplots(1, 2, figsize=(16, 8))
 
-# 1. 원본 이미지
+# 1. Original Image
 axes[0].imshow(img)
 axes[0].axis("off")
-axes[0].set_title("원본 이미지")
+axes[0].set_title("Original Image")
 
 # 2. LIME 설명 시각화
 # LIME 설명자의 파라미터 조정
@@ -126,13 +148,13 @@ axes[1].imshow(boundary_pos, alpha=0.8)  # 초록색 경계 - 높은 투명도
 axes[1].imshow(boundary_neg, alpha=0.8)  # 빨간색 경계 - 높은 투명도
 
 axes[1].axis("off")
-axes[1].set_title("LIME 설명 시각화\n(초록: 충돌 위험 / 빨강: 안전 영역)")
+axes[1].set_title("LIME Visualization\n(Green: Collision Risk / Red: Safe Area)")
 
-# 화면 상단에 텍스트로 안내/기여도 정보 표시
+# Display guidance/contribution information as text at the top of the screen
 fig.suptitle(
-    f"{'[경고] 충돌 위험! 확률' if conf >= conf_threshold else '[안내] 충돌 위험 낮음. 확률'}: {conf*100:.1f}%\n"
-    f"충돌 가능성 영역 기여도: {positive_sum / total * 100:.2f}%\n"
-    f"비충돌 가능성 영역 기여도: {abs(negative_sum) / total * 100:.2f}%",
+    f"{'[WARNING] Collision Risk! Probability' if conf >= conf_threshold else '[INFO] Low Collision Risk. Probability'}: {conf*100:.1f}%\n"
+    f"Collision Risk Area Contribution: {positive_sum / total * 100:.2f}%\n"
+    f"Safe Area Contribution: {abs(negative_sum) / total * 100:.2f}%",
     fontsize=18,
     color="red" if conf >= conf_threshold else "blue",
 )
